@@ -7,7 +7,7 @@ import { getCurrentUser } from "../../shared/utils/userData";
 import * as bookmarksApi from "../../shared/api/bookmarks";
 import ReviewsSection from "../../features/reviews/ReviewsSection";
 import { useQuery } from "@tanstack/react-query";
-import { fetchMovieDetail, fetchMovieCredits, fetchSimilarMovies } from "./api";
+import { fetchMovieDetail, fetchMovieCredits, fetchSimilarMovies, fetchPersonDetail } from "./api";
 import "./MoviesDetail.css";
 
 function MovieDetail() {
@@ -58,6 +58,42 @@ function MovieDetail() {
       mounted = false;
     };
   }, [movieID]);
+
+  // 상위 캐스트 한글 이름 보강 (백엔드 /person/:id 사용)
+  const [koNameMap, setKoNameMap] = useState<Record<number, string>>({});
+  useEffect(() => {
+    let mounted = true;
+    async function enrichKoNames() {
+      try {
+        const cast: any[] = Array.isArray((credits as any)?.cast) ? (credits as any).cast.slice(0, 10) : [];
+        if (cast.length === 0) return;
+        const tasks = cast.map(async (c) => {
+          const id = Number(c?.id);
+          const fallbackName = String(c?.name || '');
+          if (!id || !fallbackName) return [id, fallbackName] as const;
+          try {
+            // 백엔드 프록시(/person/:id)를 사용해 한글명 시도
+            const p: any = await fetchPersonDetail(id);
+            const koTrans = p?.translations?.translations?.find((t: any) => t?.iso_639_1 === 'ko')?.data?.name;
+            const koAKA = Array.isArray(p?.also_known_as) ? p.also_known_as.find((n: string) => /[가-힣]/.test(n)) : undefined;
+            const name = koTrans || koAKA || fallbackName;
+            return [id, name] as const;
+          } catch {
+            return [id, fallbackName] as const;
+          }
+        });
+        const results = await Promise.all(tasks);
+        if (!mounted) return;
+        const next: Record<number, string> = { };
+        for (const [id, name] of results) {
+          if (id) next[id] = name;
+        }
+        setKoNameMap((prev) => ({ ...prev, ...next }));
+      } catch {}
+    }
+    enrichKoNames();
+    return () => { mounted = false; };
+  }, [credits]);
 
   const onToggleLike = () => {
     if (!user) {
@@ -182,8 +218,8 @@ function MovieDetail() {
                       {c.name?.charAt(0) || "?"}
                     </div>
                   )}
-                  <div className="castMeta">
-                    <div className="castName">{c.name}</div>
+                    <div className="castMeta">
+                    <div className="castName">{koNameMap[c.id] || c.name}</div>
                     {c.character && (
                       <div className="castRole">{c.character}</div>
                     )}

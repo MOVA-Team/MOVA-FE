@@ -27,3 +27,10 @@ export const fetchSimilarMovies = async (id: string | number, page = 1) => {
     throw e;
   }
 };
+
+// Person detail (Korean-preferred)
+export const fetchPersonDetail = async (id: string | number) => {
+  // Backend exposes GET /person/:id
+  // Attempt to request Korean translation data when available
+  return apiJson(`/person/${id}?language=ko-KR&append_to_response=translations`);
+};
