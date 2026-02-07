@@ -20,6 +20,13 @@
   padding-top: 50px;
   padding-bottom: 50px;
   bottom: 2%;
+  height: 380px;
+}
+
+@media (max-width: 768px) {
+  .swiper {
+    height: 260px;
+  }
 }
 
 .swiper-slide {
